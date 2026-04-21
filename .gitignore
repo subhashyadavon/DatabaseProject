@@ -22,7 +22,6 @@ project/config/auth.cfg
 
 # Data & Databases
 project/data/cinebase.db
-project/data/data.csv
 project/cinebase.db
 project/sql/insert.sql
 project/sql/media.sql
