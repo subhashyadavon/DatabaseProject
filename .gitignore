@@ -1,0 +1,28 @@
+# Virtual Environment
+project/venv/
+venv/
+
+# Python caching
+__pycache__/
+*.py[cod]
+*$py.class
+
+# IDEs
+.vscode/
+.idea/
+.mypy_cache/
+
+# OS artifacts
+.DS_Store
+__MACOSX/
+
+# Config files
+project/auth.cfg
+project/config/auth.cfg
+
+# Data & Databases
+project/data/cinebase.db
+project/data/data.csv
+project/cinebase.db
+project/sql/insert.sql
+project/sql/media.sql

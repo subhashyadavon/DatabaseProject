@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CineBase | Premium Movie Analytics</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body>
+    <div id="loading-overlay">
+        <span class="loader"></span>
+    </div>
+
+    <!-- Sidebar Navigation -->
+    <nav class="sidebar">
+        <div class="logo">CINEBASE</div>
+        <ul class="nav-links">
+            <li class="nav-item active" data-view="dashboard">
+                <i class="fas fa-home"></i> Dashboard
+            </li>
+            <li class="nav-item" data-view="movies">
+                <i class="fas fa-film"></i> Top Movies
+            </li>
+            <li class="nav-item" data-view="actors">
+                <i class="fas fa-user-friends"></i> Top Actors
+            </li>
+            <li class="nav-item" data-view="directors">
+                <i class="fas fa-video"></i> Directors
+            </li>
+            <li class="nav-item" data-view="genres">
+                <i class="fas fa-tags"></i> Genre Trends
+            </li>
+            <li class="nav-item" data-view="admin">
+                <i class="fas fa-cog"></i> Administration
+            </li>
+        </ul>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <!-- Search Section -->
+        <div class="search-container">
+            <div class="search-wrapper">
+                <input type="text" id="main-search" class="search-input" placeholder="Search for movies, actors, or directors...">
+                <div class="search-type-selector">
+                    <span class="pill active" data-type="title">Title</span>
+                    <span class="pill" data-type="actor">Actor</span>
+                    <span class="pill" data-type="director">Director</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Dynamic Content Area -->
+        <div id="view-title" class="section-header">
+            <h2 id="current-view-name">Featured Movies</h2>
+        </div>
+
+        <div id="content-area">
+            <!-- Results will be injected here by main.js -->
+            <div class="results-grid" id="results-container">
+                <!-- Initial loading state or featured movies -->
+            </div>
+        </div>
+    </main>
+
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+</body>
+</html>
