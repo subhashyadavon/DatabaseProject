@@ -1,5 +1,6 @@
 from flask import Flask, render_template, request, jsonify
 from db_module import get_database
+from pathlib import Path
 
 app = Flask(__name__)
 
@@ -34,6 +35,7 @@ def get_stats(stat_type):
         'composers': db.topComposers,
         'writers': db.topWriters,
         'movies': db.topMovies,
+        'top_movies': lambda: db.topMovies(10),
         'genre': db.countGenre,
         'genre_decades': db.topGenreDecade,
         'runtime': db.topRuntime,
@@ -45,6 +47,23 @@ def get_stats(stat_type):
     if stat_type in stats_map:
         return jsonify(stats_map[stat_type]())
     return jsonify({"error": "Invalid stat type"}), 400
+
+def _read_auth():
+    auth_path = Path(__file__).parent / 'config' / 'auth.cfg'
+    creds = {}
+    with open(auth_path) as f:
+        for line in f:
+            if '=' in line:
+                key, val = line.strip().split('=', 1)
+                creds[key.strip()] = val.strip()
+    return creds
+
+@app.route('/api/admin/auth', methods=['POST'])
+def admin_auth():
+    correct = _read_auth().get('password')
+    if request.json.get('password') == correct:
+        return jsonify({"ok": True})
+    return jsonify({"ok": False}), 401
 
 @app.route('/api/admin/<action>', methods=['POST'])
 def admin_action(action):

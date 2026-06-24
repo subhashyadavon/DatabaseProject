@@ -1,212 +1,185 @@
 document.addEventListener('DOMContentLoaded', () => {
     const searchInput = document.getElementById('main-search');
-    const searchPills = document.querySelectorAll('.pill');
-    const navItems = document.querySelectorAll('.nav-item');
+    const searchArea = document.getElementById('search-area');
+    const navItems = document.querySelectorAll('nav li');
     const resultsContainer = document.getElementById('results-container');
     const viewName = document.getElementById('current-view-name');
-    const loader = document.getElementById('loading-overlay');
+    const authModal = document.getElementById('auth-modal');
+    const adminPasswordInput = document.getElementById('admin-password');
+    const authError = document.getElementById('auth-error');
 
-    let currentSearchType = 'title';
-    let currentView = 'dashboard';
-
-    // Initial Load
     loadStats('movies');
 
-    // Navigation Logic
+    function switchView(item, view) {
+        navItems.forEach(n => n.classList.remove('active'));
+        item.classList.add('active');
+        searchArea.style.display = view === 'dashboard' ? 'flex' : 'none';
+        searchInput.value = '';
+        updateView(view);
+    }
+
     navItems.forEach(item => {
         item.addEventListener('click', () => {
-            navItems.forEach(nav => nav.classList.remove('active'));
-            item.classList.add('active');
-            
             const view = item.getAttribute('data-view');
-            currentView = view;
-            updateView(view);
+            if (view === 'admin') {
+                adminPasswordInput.value = '';
+                authError.textContent = '';
+                authModal.style.display = 'flex';
+            } else {
+                switchView(item, view);
+            }
         });
     });
 
-    // Search Type Selection
-    searchPills.forEach(pill => {
-        pill.addEventListener('click', () => {
-            searchPills.forEach(p => p.classList.remove('active'));
-            pill.classList.add('active');
-            currentSearchType = pill.getAttribute('data-type');
+    document.getElementById('auth-submit').addEventListener('click', async () => {
+        const password = adminPasswordInput.value;
+        const res = await fetch('/api/admin/auth', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ password })
         });
+        if (res.ok) {
+            authModal.style.display = 'none';
+            const adminItem = document.querySelector('[data-view="admin"]');
+            switchView(adminItem, 'admin');
+        } else {
+            authError.textContent = 'Incorrect password.';
+        }
     });
 
-    // Search Input Logic
+    adminPasswordInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') document.getElementById('auth-submit').click();
+    });
+
+    document.getElementById('auth-cancel').addEventListener('click', () => {
+        authModal.style.display = 'none';
+    });
+
+    function triggerSearch() {
+        const query = searchInput.value.trim();
+        if (query.length < 2) return;
+        performSearch(query);
+    }
+
     let timeout = null;
     searchInput.addEventListener('input', (e) => {
         clearTimeout(timeout);
         const query = e.target.value;
         if (query.length < 2) return;
-
-        timeout = setTimeout(() => {
-            performSearch(query);
-        }, 500);
+        timeout = setTimeout(() => performSearch(query), 500);
     });
 
+    searchInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') { clearTimeout(timeout); triggerSearch(); }
+    });
+
+    document.getElementById('search-icon').addEventListener('click', () => {
+        clearTimeout(timeout); triggerSearch();
+    });
+
+    function highlight(text, query) {
+        if (!text) return '';
+        const escaped = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        return text.replace(new RegExp(`(${escaped})`, 'gi'), '<strong>$1</strong>');
+    }
+
     async function performSearch(query) {
-        showLoader();
         try {
-            const response = await fetch('/api/search', {
+            const res = await fetch('/api/search', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ query, type: currentSearchType })
+                body: JSON.stringify({ query, type: 'title' })
             });
-            const data = await response.json();
-            renderSearchResults(data);
-            viewName.textContent = `Search Results: "${query}"`;
-        } catch (error) {
-            console.error('Search failed:', error);
-            resultsContainer.innerHTML = '<p class="error">Search failed. Check your connection.</p>';
-        } finally {
-            hideLoader();
+            const data = await res.json();
+            viewName.textContent = `Results for "${query}"`;
+            const rows = data.map((item, i) => `
+                <tr>
+                    <td>${i + 1}</td>
+                    <td>${highlight(item.title, query)}</td>
+                    <td>${item.releaseDate || ''}</td>
+                    <td>${item.language || ''}</td>
+                    <td><em>${highlight(item.tagline, query)}</em></td>
+                </tr>
+            `).join('');
+            resultsContainer.innerHTML = `
+                <table>
+                    <thead><tr><th>#</th><th>Title</th><th>Release Date</th><th>Language</th><th>Tagline</th></tr></thead>
+                    <tbody>${rows}</tbody>
+                </table>
+            `;
+        } catch (e) {
+            resultsContainer.innerHTML = '<p>Search failed.</p>';
         }
     }
 
     async function loadStats(type) {
-        showLoader();
         try {
-            const response = await fetch(`/api/stats/${type}`);
-            const data = await response.json();
+            const res = await fetch(`/api/stats/${type}`);
+            const data = await res.json();
             renderStats(data, type);
-        } catch (error) {
-            console.error('Failed to load stats:', error);
-        } finally {
-            hideLoader();
+        } catch (e) {
+            resultsContainer.innerHTML = '<p>Failed to load data.</p>';
         }
     }
 
     function updateView(view) {
-        switch(view) {
-            case 'dashboard':
-                viewName.textContent = 'Popular Now';
-                loadStats('movies');
-                break;
-            case 'movies':
-                viewName.textContent = 'Top Movies by Revenue';
-                loadStats('movies');
-                break;
-            case 'actors':
-                viewName.textContent = 'Highest Grossing Actors';
-                loadStats('actors');
-                break;
-            case 'directors':
-                viewName.textContent = 'Top Rated Directors';
-                loadStats('directors');
-                break;
-            case 'genres':
-                viewName.textContent = 'Genre Trends';
-                loadStats('genre');
-                break;
-            case 'admin':
-                viewName.textContent = 'System Administration';
-                renderAdminView();
-                break;
+        const views = {
+            dashboard: ['Featured Movies', 'movies'],
+            movies:    ['Top Movies by Revenue', 'top_movies'],
+            actors:    ['Highest Grossing Actors', 'actors'],
+            directors: ['Top Directors', 'directors'],
+            genres:    ['Genre Counts', 'genre'],
+        };
+        if (view === 'admin') {
+            viewName.textContent = 'Administration';
+            renderAdminView();
+            return;
         }
-    }
-
-    function renderSearchResults(data) {
-        resultsContainer.className = 'results-grid';
-        resultsContainer.innerHTML = data.map(item => `
-            <div class="movie-card">
-                <div class="poster-placeholder">
-                    <i class="fas fa-film"></i>
-                    ${item.popularity ? `<div style="position:absolute; bottom:10px; right:10px; background:rgba(0,0,0,0.7); padding:5px 10px; border-radius:5px; color:var(--accent-color)">★ ${item.popularity.toFixed(1)}</div>` : ''}
-                </div>
-                <div class="movie-info">
-                    <div class="movie-title">${item.title}</div>
-                    <div class="movie-meta">
-                        <span>${item.releaseDate || ''}</span>
-                        <span>${item.language || ''}</span>
-                    </div>
-                    ${item.tagline ? `<p style="font-size:0.8rem; font-style:italic; margin-top:10px; color:var(--text-secondary)">"${item.tagline}"</p>` : ''}
-                </div>
-            </div>
-        `).join('');
+        const [label, stat] = views[view] || ['Movies', 'movies'];
+        viewName.textContent = label;
+        loadStats(stat);
     }
 
     function renderStats(data, type) {
-        resultsContainer.className = 'stats-container';
-        let tableHeader = '';
-        let tableRows = '';
+        let header = '', rows = '';
 
-        if (type === 'movies') {
-            tableHeader = '<tr><th>Rank</th><th>Title</th><th>Popularity</th><th>Revenue</th></tr>';
-            tableRows = data.map((item, index) => `
-                <tr>
-                    <td class="rank">#${index + 1}</td>
-                    <td><b>${item.title}</b></td>
-                    <td>★ ${item.popularity.toFixed(1)}</td>
-                    <td>$${(item.revenue / 1000000).toFixed(1)}M</td>
-                </tr>
-            `).join('');
+        if (type === 'movies' || type === 'top_movies') {
+            header = '<tr><th>#</th><th>Title</th><th>Popularity</th><th>Revenue</th></tr>';
+            rows = data.map((item, i) => `<tr><td>${i + 1}</td><td>${item.title}</td><td>${item.popularity.toFixed(1)}</td><td>$${(item.revenue / 1e6).toFixed(1)}M</td></tr>`).join('');
         } else if (type === 'actors') {
-            tableHeader = '<tr><th>Rank</th><th>Actor Name</th><th>Filmography Revenue</th></tr>';
-            tableRows = data.map((item, index) => `
-                <tr>
-                    <td class="rank">#${index + 1}</td>
-                    <td><b>${item.name}</b></td>
-                    <td>$${(item.revenue / 1000000).toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ",")}M</td>
-                </tr>
-            `).join('');
+            header = '<tr><th>#</th><th>Actor</th><th>Revenue</th></tr>';
+            rows = data.map((item, i) => `<tr><td>${i + 1}</td><td>${item.name}</td><td>$${(item.revenue / 1e6).toFixed(0)}M</td></tr>`).join('');
         } else if (type === 'directors') {
-            tableHeader = '<tr><th>Rank</th><th>Director Name</th><th>Avg IMDB Rating</th></tr>';
-            tableRows = data.map((item, index) => `
-                <tr>
-                    <td class="rank">#${index + 1}</td>
-                    <td><b>${item.name}</b></td>
-                    <td>★ ${item.rating.toFixed(2)}</td>
-                </tr>
-            `).join('');
+            header = '<tr><th>#</th><th>Director</th><th>Avg IMDB</th></tr>';
+            rows = data.map((item, i) => `<tr><td>${i + 1}</td><td>${item.name}</td><td>${item.rating.toFixed(2)}</td></tr>`).join('');
         } else if (type === 'genre') {
-            tableHeader = '<tr><th>Rank</th><th>Genre</th><th>Movie Count</th></tr>';
-            tableRows = data.map((item, index) => `
-                <tr>
-                    <td class="rank">#${index + 1}</td>
-                    <td><b>${item.genre}</b></td>
-                    <td>${item.count}</td>
-                </tr>
-            `).join('');
+            header = '<tr><th>#</th><th>Genre</th><th>Count</th></tr>';
+            rows = data.map((item, i) => `<tr><td>${i + 1}</td><td>${item.genre}</td><td>${item.count}</td></tr>`).join('');
         }
 
-        resultsContainer.innerHTML = `
-            <table>
-                <thead>${tableHeader}</thead>
-                <tbody>${tableRows}</tbody>
-            </table>
-        `;
+        resultsContainer.innerHTML = `<table><thead>${header}</thead><tbody>${rows}</tbody></table>`;
     }
 
     function renderAdminView() {
-        resultsContainer.className = 'stats-container';
         resultsContainer.innerHTML = `
-            <div style="display: flex; flex-direction: column; gap: 20px; max-width: 400px;">
-                <p style="color: var(--text-secondary)">Administrative database operations. Use with caution.</p>
-                <button class="pill" style="height: 50px; background: rgba(255,0,0,0.1); border-color: #ff4d4d; color: #ff4d4d;" onclick="adminAction('delete')">Delete Database Content</button>
-                <button class="pill" style="height: 50px; background: rgba(0,255,0,0.1); border-color: #4dff4d; color: #4dff4d;" onclick="adminAction('repopulate')">Repopulate Database</button>
-                <button class="pill" style="height: 50px; background: rgba(0,0,255,0.1); border-color: var(--accent-color); color: var(--accent-color);" onclick="adminAction('recreate')">Recreate Database Tables</button>
-                <div id="admin-message" style="margin-top: 20px; font-weight: 500;"></div>
+            <div id="admin-area">
+                <p>Database operations:</p>
+                <button onclick="adminAction('delete')">Delete Content</button>
+                <button onclick="adminAction('repopulate')">Repopulate</button>
+                <button onclick="adminAction('recreate')">Recreate Tables</button>
+                <div id="admin-message"></div>
             </div>
         `;
     }
 
     window.adminAction = async (action) => {
-        if (!confirm(`Are you sure you want to perform: ${action}?`)) return;
-        showLoader();
+        if (!confirm(`Run: ${action}?`)) return;
         try {
-            const response = await fetch(`/api/admin/${action}`, { method: 'POST' });
-            const data = await response.json();
+            const res = await fetch(`/api/admin/${action}`, { method: 'POST' });
+            const data = await res.json();
             document.getElementById('admin-message').textContent = data.message;
-            document.getElementById('admin-message').style.color = data.message.includes('Error') ? '#ff4d4d' : '#4dff4d';
-        } catch (error) {
+        } catch (e) {
             document.getElementById('admin-message').textContent = 'Action failed.';
-            document.getElementById('admin-message').style.color = '#ff4d4d';
-        } finally {
-            hideLoader();
         }
     };
-
-    function showLoader() { loader.style.display = 'flex'; }
-    function hideLoader() { loader.style.display = 'none'; }
 });

@@ -96,13 +96,16 @@ class SQLiteDatabase(BaseDatabase):
         results = self._execute_query(query)
         return [{"name": row[0], "gain": float(row[1]) if row[1] else 0} for row in results]
 
-    def topMovies(self):
+    def topMovies(self, limit=None):
         query = """
             SELECT popularity, title, revenue
-            FROM media 
+            FROM media
             ORDER BY popularity DESC
-            LIMIT 10;
         """
+        if limit:
+            query += f" LIMIT {int(limit)};"
+        else:
+            query += ";"
         results = self._execute_query(query)
         return [{"popularity": row[0], "title": row[1], "revenue": float(row[2]) if row[2] else 0} for row in results]
 
