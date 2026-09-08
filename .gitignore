@@ -25,3 +25,6 @@ project/data/cinebase.db
 project/cinebase.db
 project/sql/insert.sql
 project/sql/media.sql
+
+# Generated docs
+docs/architecture.html
