@@ -14,7 +14,8 @@ CineBase is a modern web application for exploring a massive dataset of over 10,
    cd project
    python -m venv venv
    source venv/bin/activate
-   pip install flask pymssql  # pymssql is optional for local mode
+   pip install -r requirements.txt
+   pip install pymssql  # optional, only needed for the remote MSSQL backend
    ```
 
 2. **Setup Local Database**:
